@@ -7,8 +7,8 @@ build:
 
 run: build
 	mkdir -p ./run
-	cp ./build/vulkan ./run/vulkan
-	./run/vulkan
+	cp ./build/vulk ./run/vulk
+	./run/vulk
 
 clean:
 	rm -rf ./build
