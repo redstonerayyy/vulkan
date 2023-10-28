@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <vector>
 #include <iostream>
-#include <cstring>
+// #include <cstring>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -104,6 +104,8 @@ VkInstance vulkan_init(){
     if (vkCreateInstance(&createinfo, nullptr, &instance) != VK_SUCCESS) {
         throw std::runtime_error("failed to create instance!");
     }
+
+    return instance;
 }
 
 void vulkan_terminate(VkInstance instance){
