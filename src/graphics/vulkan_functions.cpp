@@ -1,11 +1,12 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <iostream>
 #include <stdexcept>
 #include <vector>
-#include <iostream>
-// #include <cstring>
+#include <cstring>
 
+// log debug messages
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -17,51 +18,55 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     return VK_FALSE;
 }
 
-VkInstance vulkan_init(){
-    const std::vector<const char*> validationLayers = {
-        "VK_LAYER_KHRONOS_validation"
-    };
-
-    #ifdef NDEBUG
-        const bool enableValidationLayers = false;
-    #else
-        const bool enableValidationLayers = true;
-    #endif
-
+std::vector<VkLayerProperties> enumerateVkLayers(){
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-    for (const char* layerName : validationLayers) {
-        bool layerFound = false;
+    return availableLayers;
+}
 
-        for (const auto& layerProperties : availableLayers) {
-            if (strcmp(layerName, layerProperties.layerName) == 0) {
-                layerFound = true;
-                break;
-            }
-        }
-
-        if (!layerFound) {
-            std::cout << "layer not found\n";
-        }
-    }
-
-    if (enableValidationLayers && false) {
-        throw std::runtime_error("validation layers requested, but not available!");
-    }
-
+std::vector<VkExtensionProperties> enumerateVkExtensions(){
     uint32_t extensioncount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extensioncount, nullptr);
 
-    std::vector<VkExtensionProperties> extensions(extensioncount);
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensioncount, extensions.data());
+    std::vector<VkExtensionProperties> availableExtensions(extensioncount);
+    vkEnumerateInstanceExtensionProperties(nullptr, &extensioncount, availableExtensions.data());
+
+    return availableExtensions;
+}
+
+bool checkLayer(const char* layerName, std::vector<VkLayerProperties> &availableLayers){
+    for (const auto &layerProperties : availableLayers) {
+        if (strcmp(layerName, layerProperties.layerName) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+VkInstance vulkan_init(){
+    std::vector<VkLayerProperties> availableLayers = enumerateVkLayers();
+    std::vector<VkExtensionProperties> availableExtensions = enumerateVkExtensions();
+
+    const std::vector<const char*> requiredValidationLayers = {
+        "VK_LAYER_KHRONOS_validation"
+    };
+
+
+    for (const char* layerName : requiredValidationLayers) {
+        if (!checkLayer(layerName, availableLayers)) {
+            std::cout << layerName << " layer not found\n";
+        }
+    }
 
     std::cout << "available extensions:\n";
 
-    for (const auto& extension : extensions) {
+    for (const auto& extension : availableExtensions) {
         std::cout << '\t' << extension.extensionName << '\n';
     }
 
@@ -71,7 +76,7 @@ VkInstance vulkan_init(){
     appinfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appinfo.pApplicationName = "Minecraft";
     appinfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appinfo.pEngineName = "Custom Ray Engine";
+    appinfo.pEngineName = "Custom";
     appinfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appinfo.apiVersion = VK_API_VERSION_1_0;
 
@@ -86,6 +91,7 @@ VkInstance vulkan_init(){
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
+    const bool enableValidationLayers = true;
     if (enableValidationLayers) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
@@ -95,8 +101,8 @@ VkInstance vulkan_init(){
     createinfo.enabledLayerCount = 0;
 
     if (enableValidationLayers) {
-        createinfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createinfo.ppEnabledLayerNames = validationLayers.data();
+        createinfo.enabledLayerCount = static_cast<uint32_t>(requiredValidationLayers.size());
+        createinfo.ppEnabledLayerNames = requiredValidationLayers.data();
     } else {
         createinfo.enabledLayerCount = 0;
     }
