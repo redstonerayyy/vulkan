@@ -1,10 +1,11 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
 #include <iostream>
 #include <stdexcept>
 #include <vector>
 #include <cstring>
+
+#include "vulkan_constants.hpp"
 
 // log debug messages
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -48,31 +49,30 @@ bool checkLayer(const char* layerName, std::vector<VkLayerProperties> &available
     return false;
 }
 
-
-VkInstance vulkan_init(){
-    std::vector<VkLayerProperties> availableLayers = enumerateVkLayers();
-    std::vector<VkExtensionProperties> availableExtensions = enumerateVkExtensions();
-
-    const std::vector<const char*> requiredValidationLayers = {
-        "VK_LAYER_KHRONOS_validation"
-    };
-
-
-    for (const char* layerName : requiredValidationLayers) {
+bool checkLayers(std::vector<const char*> requiredLayers, std::vector<VkLayerProperties> &availableLayers){
+    bool found = true;
+    for (const char* layerName : requiredLayers) {
         if (!checkLayer(layerName, availableLayers)) {
             std::cout << layerName << " layer not found\n";
+            found = false;
         }
     }
+    return found;
+}
 
-    std::cout << "available extensions:\n";
+std::vector<const char*> determineRequiredExtensions(){
+    uint32_t glfwExtensionCount = 0;
+    const char** glfwExtensions;
+    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    
+    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+    if (enableValidationLayers)
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-    for (const auto& extension : availableExtensions) {
-        std::cout << '\t' << extension.extensionName << '\n';
-    }
+    return extensions;
+}
 
-    VkInstance instance;
-
-    VkApplicationInfo appinfo{};
+void makeInstanceCreateInfo(VkApplicationInfo appinfo, VkInstanceCreateInfo createinfo, std::vector<const char*> extensions){
     appinfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appinfo.pApplicationName = "Minecraft";
     appinfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -80,22 +80,8 @@ VkInstance vulkan_init(){
     appinfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appinfo.apiVersion = VK_API_VERSION_1_0;
 
-    VkInstanceCreateInfo createinfo{};
     createinfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createinfo.pApplicationInfo = &appinfo;
-
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions;
-
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-    const bool enableValidationLayers = true;
-    if (enableValidationLayers) {
-        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    }
-
     createinfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createinfo.ppEnabledExtensionNames = extensions.data();
     createinfo.enabledLayerCount = 0;
@@ -103,17 +89,23 @@ VkInstance vulkan_init(){
     if (enableValidationLayers) {
         createinfo.enabledLayerCount = static_cast<uint32_t>(requiredValidationLayers.size());
         createinfo.ppEnabledLayerNames = requiredValidationLayers.data();
-    } else {
-        createinfo.enabledLayerCount = 0;
     }
-
-    if (vkCreateInstance(&createinfo, nullptr, &instance) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create instance!");
-    }
-
-    return instance;
 }
 
-void vulkan_terminate(VkInstance instance){
-    vkDestroyInstance(instance, nullptr);
+VkInstance createVulkanInstance(){
+    std::vector<VkExtensionProperties> availableExtensions = enumerateVkExtensions();
+    std::vector<const char*> extensions = determineRequiredExtensions();
+
+    std::vector<VkLayerProperties> availableLayers = enumerateVkLayers();
+    if(!checkLayers(requiredValidationLayers, availableLayers)) exit(EXIT_FAILURE);
+
+    VkApplicationInfo appinfo{};
+    VkInstanceCreateInfo createinfo{};
+    makeInstanceCreateInfo(appinfo, createinfo, extensions);
+    VkInstance instance;
+
+    if (vkCreateInstance(&createinfo, nullptr, &instance) != VK_SUCCESS)
+        throw std::runtime_error("failed to create instance!");
+
+    return instance;
 }

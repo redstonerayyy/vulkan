@@ -1,15 +1,11 @@
 #pragma once
 
-#ifndef VULKAN_HPP
-#define VULKAN_HPP
+#ifndef VULKAN_FUNCTIONS_HPP
+#define VULKAN_FUNCTIONS_HPP
 
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 #include <vector>
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback();
-std::vector<VkLayerProperties> enumerateVkLayers();
-std::vector<VkExtensionProperties> enumerateVkExtensions();
-bool checkLayer(const char* layerName, std::vector<VkLayerProperties> &availableLayers);
-VkInstance vulkan_init();
+VkInstance createVulkanInstance();
 
 #endif
